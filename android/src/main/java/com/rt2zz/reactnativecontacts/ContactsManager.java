@@ -4,10 +4,8 @@ import android.content.ContentProviderOperation;
 import android.content.ContentResolver;
 import android.content.Context;
 import android.content.pm.PackageManager;
-import android.os.AsyncTask;
 import android.provider.ContactsContract;
 import android.provider.ContactsContract.CommonDataKinds;
-import android.provider.ContactsContract.CommonDataKinds.Organization;
 import android.provider.ContactsContract.CommonDataKinds.StructuredName;
 import android.provider.ContactsContract.RawContacts;
 
@@ -32,58 +30,14 @@ public class ContactsManager extends ReactContextBaseJavaModule {
      * queries CommonDataKinds.Contactables to get phones and emails
      */
     @ReactMethod
-    public void getAll(final Callback callback) {
-        getAllContacts(callback);
-    }
+    public void getAll(Callback callback) {
+        Context context = getReactApplicationContext();
+        ContentResolver cr = context.getContentResolver();
 
-    /**
-     * Introduced for iOS compatibility.  Same as getAll
-     *
-     * @param callback callback
-     */
-    @ReactMethod
-    public void getAllWithoutPhotos(final Callback callback) {
-        getAllContacts(callback);
-    }
+        ContactsProvider contactsProvider = new ContactsProvider(cr, context);
+        WritableArray contacts = contactsProvider.getContacts();
 
-    /**
-     * Retrieves contacts.
-     * Uses raw URI when <code>rawUri</code> is <code>true</code>, makes assets copy otherwise.
-     * @param callback callback
-     */
-    private void getAllContacts(final Callback callback) {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                Context context = getReactApplicationContext();
-                ContentResolver cr = context.getContentResolver();
-
-                ContactsProvider contactsProvider = new ContactsProvider(cr);
-                WritableArray contacts = contactsProvider.getContacts();
-
-                callback.invoke(null, contacts);
-            }
-        });
-    }
-
-    /**
-     * Retrieves <code>thumbnailPath</code> for contact, or <code>null</code> if not available.
-     * @param contactId contact identifier, <code>recordID</code>
-     * @param callback callback
-     */
-    @ReactMethod
-    public void getPhotoForId(final String contactId, final Callback callback) {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                Context context = getReactApplicationContext();
-                ContentResolver cr = context.getContentResolver();
-                ContactsProvider contactsProvider = new ContactsProvider(cr);
-                String photoUri = contactsProvider.getPhotoUriFromContactId(contactId);
-
-                callback.invoke(null, photoUri);
-            }
-        });
+        callback.invoke(null, contacts);
     }
 
     /*
@@ -95,11 +49,6 @@ public class ContactsManager extends ReactContextBaseJavaModule {
         String givenName = contact.hasKey("givenName") ? contact.getString("givenName") : null;
         String middleName = contact.hasKey("middleName") ? contact.getString("middleName") : null;
         String familyName = contact.hasKey("familyName") ? contact.getString("familyName") : null;
-        String prefix = contact.hasKey("prefix") ? contact.getString("prefix") : null;
-        String suffix = contact.hasKey("suffix") ? contact.getString("suffix") : null;
-        String company = contact.hasKey("company") ? contact.getString("company") : null;
-        String jobTitle = contact.hasKey("jobTitle") ? contact.getString("jobTitle") : null;
-        String department = contact.hasKey("department") ? contact.getString("department") : null;
 
         // String name = givenName;
         // name += middleName != "" ? " " + middleName : "";
@@ -148,17 +97,7 @@ public class ContactsManager extends ReactContextBaseJavaModule {
                 // .withValue(StructuredName.DISPLAY_NAME, name)
                 .withValue(StructuredName.GIVEN_NAME, givenName)
                 .withValue(StructuredName.MIDDLE_NAME, middleName)
-                .withValue(StructuredName.FAMILY_NAME, familyName)
-                .withValue(StructuredName.PREFIX, prefix)
-                .withValue(StructuredName.SUFFIX, suffix);
-        ops.add(op.build());
-
-        op = ContentProviderOperation.newInsert(ContactsContract.Data.CONTENT_URI)
-                .withValueBackReference(ContactsContract.Data.RAW_CONTACT_ID, 0)
-                .withValue(ContactsContract.Data.MIMETYPE, Organization.CONTENT_ITEM_TYPE)
-                .withValue(Organization.COMPANY, company)
-                .withValue(Organization.TITLE, jobTitle)
-                .withValue(Organization.DEPARTMENT, department);
+                .withValue(StructuredName.FAMILY_NAME, familyName);
         ops.add(op.build());
 
         //TODO not sure where to allow yields
@@ -203,11 +142,6 @@ public class ContactsManager extends ReactContextBaseJavaModule {
         String givenName = contact.hasKey("givenName") ? contact.getString("givenName") : null;
         String middleName = contact.hasKey("middleName") ? contact.getString("middleName") : null;
         String familyName = contact.hasKey("familyName") ? contact.getString("familyName") : null;
-        String prefix = contact.hasKey("prefix") ? contact.getString("prefix") : null;
-        String suffix = contact.hasKey("suffix") ? contact.getString("suffix") : null;
-        String company = contact.hasKey("company") ? contact.getString("company") : null;
-        String jobTitle = contact.hasKey("jobTitle") ? contact.getString("jobTitle") : null;
-        String department = contact.hasKey("department") ? contact.getString("department") : null;
 
         ReadableArray phoneNumbers = contact.hasKey("phoneNumbers") ? contact.getArray("phoneNumbers") : null;
         int numOfPhones = 0;
@@ -255,23 +189,14 @@ public class ContactsManager extends ReactContextBaseJavaModule {
                 .withValue(ContactsContract.Data.MIMETYPE, StructuredName.CONTENT_ITEM_TYPE)
                 .withValue(StructuredName.GIVEN_NAME, givenName)
                 .withValue(StructuredName.MIDDLE_NAME, middleName)
-                .withValue(StructuredName.FAMILY_NAME, familyName)
-                .withValue(StructuredName.PREFIX, prefix)
-                .withValue(StructuredName.SUFFIX, suffix);
-        ops.add(op.build());
-
-        op = ContentProviderOperation.newUpdate(ContactsContract.Data.CONTENT_URI)
-                .withSelection(ContactsContract.Data.CONTACT_ID + "=? AND " + ContactsContract.Data.MIMETYPE + " = ?", new String[]{String.valueOf(recordID), Organization.CONTENT_ITEM_TYPE})
-                .withValue(Organization.COMPANY, company)
-                .withValue(Organization.TITLE, jobTitle)
-                .withValue(Organization.DEPARTMENT, department);
+                .withValue(StructuredName.FAMILY_NAME, familyName);
         ops.add(op.build());
 
         op.withYieldAllowed(true);
 
         for (int i = 0; i < numOfPhones; i++) {
             op = ContentProviderOperation.newUpdate(ContactsContract.Data.CONTENT_URI)
-                    .withSelection(ContactsContract.Data.CONTACT_ID + "=? AND " + ContactsContract.Data.MIMETYPE + " = ?", new String[]{String.valueOf(recordID), CommonDataKinds.Phone.CONTENT_ITEM_TYPE})
+                    .withSelection(ContactsContract.Data.CONTACT_ID + "=? AND " + ContactsContract.Data.MIMETYPE + " = ?", new String[]{String.valueOf(recordID), ContactsContract.CommonDataKinds.Phone.CONTENT_ITEM_TYPE})
                     .withValue(ContactsContract.Data.MIMETYPE, CommonDataKinds.Phone.CONTENT_ITEM_TYPE)
                     .withValue(CommonDataKinds.Phone.NUMBER, phones[i])
                     .withValue(CommonDataKinds.Phone.TYPE, phonesLabels[i]);
@@ -280,7 +205,7 @@ public class ContactsManager extends ReactContextBaseJavaModule {
 
         for (int i = 0; i < numOfEmails; i++) {
             op = ContentProviderOperation.newUpdate(ContactsContract.Data.CONTENT_URI)
-                    .withSelection(ContactsContract.Data.RAW_CONTACT_ID + "=? AND " + ContactsContract.Data.MIMETYPE + " = ?", new String[]{String.valueOf(recordID), CommonDataKinds.Email.CONTENT_ITEM_TYPE})
+                    .withSelection(ContactsContract.Data.RAW_CONTACT_ID + "=? AND " + ContactsContract.Data.MIMETYPE + " = ?", new String[]{String.valueOf(recordID), ContactsContract.CommonDataKinds.Email.CONTENT_ITEM_TYPE})
                     .withValue(ContactsContract.Data.MIMETYPE, CommonDataKinds.Email.CONTENT_ITEM_TYPE)
                     .withValue(CommonDataKinds.Email.ADDRESS, emails[i])
                     .withValue(CommonDataKinds.Email.TYPE, emailsLabels[i]);
